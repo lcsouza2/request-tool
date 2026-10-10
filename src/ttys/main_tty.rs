@@ -1,8 +1,10 @@
+use clap::Parser;
 use reqwest::Client;
 use rustyline::DefaultEditor;
 use rustyline::error::ReadlineError;
 
 use crate::engine;
+use crate::ttys::repl::{Repl, ReplCommands};
 
 pub async fn main_tty(http_client: &Client) {
     let mut rl = DefaultEditor::new().expect("Error initializing TTY");
@@ -14,36 +16,31 @@ pub async fn main_tty(http_client: &Client) {
             Ok(line) => {
                 let cmd = line.trim();
 
+                let parsed = Repl::try_parse_from(cmd.split_whitespace());
+
                 if !cmd.is_empty() {
                     let _ = rl.add_history_entry(cmd);
                 }
 
-                match cmd {
-                    "exit" => {
-                        break;
-                    }
-                    "help" => {
-                        println!("nada ainda");
-                    }
-                    "clear" => {
-                        println!("\033[2J");
-                        println!("\033[H");
-                    }
-                    cmd if cmd.starts_with("flood") => {
-                        let parts: Vec<&str> = cmd.split_whitespace().collect();
-                        let requests = parts[2].parse::<u32>();
-
-                        match requests {
-                            Ok(requests) => {
-                                engine::flood_url(&http_client, parts[1], requests).await;
-                            }
-                            Err(err) => {
-                                println!("Invalid requests {}", err);
-                            }
+                match parsed {
+                    Ok(repl) => match repl.command {
+                        Some(ReplCommands::Flood { url, requests }) => {
+                            engine::flood_url(http_client, &url, requests).await;
                         }
-
+                        Some(ReplCommands::Config) => {
+                            println!("Configuration mode is not implemented yet");
+                        }
+                        Some(ReplCommands::Clear) => {
+                            println!("\x1B[2J\x1B[H");
+                        }
+                        Some(ReplCommands::Exit) => {
+                            break;
+                        }
+                        None => {}
+                    },
+                    Err(err) => {
+                        println!("{}", err);
                     }
-                    _ => {println!("Unknown command");}
                 }
             }
             Err(ReadlineError::Interrupted | ReadlineError::Eof) => {
