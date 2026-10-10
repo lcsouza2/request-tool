@@ -25,6 +25,10 @@ pub async fn main_tty(http_client: &Client) {
                     "help" => {
                         println!("nada ainda");
                     }
+                    "clear" => {
+                        println!("\033[2J");
+                        println!("\033[H");
+                    }
                     cmd if cmd.starts_with("flood") => {
                         let parts: Vec<&str> = cmd.split_whitespace().collect();
                         let requests = parts[2].parse::<u32>();
