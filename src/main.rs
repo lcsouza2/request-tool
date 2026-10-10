@@ -1,33 +1,13 @@
-use clap::{Parser, Subcommand};
+use clap::Parser;
 use reqwest::Client;
 use std::time::Duration;
 mod engine;
 mod ttys;
-
-// Configures the main TTY / Repl handler
-#[derive(Parser)]
-#[command(name = "striker")]
-#[command(about = "Ferramenta de Stress Test de Alta Performance", long_about = None)]
-struct Cli {
-    #[command(subcommand)]
-    command: Option<CliCommands>,
-}
-
-// Available commands enum
-#[derive(Subcommand)]
-enum CliCommands {
-    Repl,
-    Flood {
-        #[arg(short, long)]
-        url: String,
-        #[arg(short, long)]
-        requests: u32
-    },
-}
+mod cli;
 
 #[tokio::main]
 async fn main() {
-    let cli = Cli::parse();
+    let cli = cli::Cli::parse();
     let http_client = Client::builder()
     .timeout(Duration::from_secs(10))
     .danger_accept_invalid_certs(true)
@@ -35,10 +15,10 @@ async fn main() {
     .expect("Error building HTTP Client");
 
     match &cli.command {
-        Some(CliCommands::Flood {url, requests}) => {
+        Some(cli::CliCommands::Flood {url, requests}) => {
             engine::flood_url(&http_client, &url, *requests).await;
         }
-        Some(CliCommands::Repl) | None => {
+        Some(cli::CliCommands::Repl) | None => {
             ttys::main_tty::main_tty(&http_client).await;
         }
 
